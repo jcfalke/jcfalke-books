@@ -106,27 +106,76 @@ loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.
 
   function DocBadge(p){ if(!p.docs||!p.docs.length) return null; return h('span',{style:{fontSize:10,background:C.amberL,color:C.amber,borderRadius:10,padding:"1px 7px",fontWeight:600,marginLeft:4}},"📎 "+p.docs.length); }
 
+  // ── AI analysis via Anthropic API ──────────────────────────────────────────
+  function analyzeDoc(doc, mode, onResult, onError) {
+    var isImg = doc.type.startsWith("image/");
+    var isPdf = doc.type === "application/pdf";
+    var mediaType = doc.type;
+    var b64 = doc.data.split(",")[1];
+
+    var txPrompt = "You are a bookkeeping assistant. Analyze this document (receipt, bank statement, or expense) and extract the following fields as JSON only, no markdown, no explanation:\n{\"date\":\"YYYY-MM-DD\",\"desc\":\"vendor or description\",\"amt\":number,\"cur\":\"CAD or USD\",\"type\":\"Expense or Income\",\"cat\":\"one of: Sales|Services|Consulting|Professional Fees|Travel|Utilities|Software & Subscriptions|Rent|Payroll & Wages|Insurance|Shipping|Marketing & Advertising|Bank & Merchant Fees|Other Expense|Other Income\",\"method\":\"one of: Bank Transfer|Credit Card|Debit Card|Cash|Check|PayPal|Stripe|Other\",\"notes\":\"any extra info\"}\nIf a field is unknown, use empty string or 0. Return ONLY the JSON object.";
+
+    var invPrompt = "You are a bookkeeping assistant. Analyze this invoice document and extract the following fields as JSON only, no markdown, no explanation:\n{\"num\":\"invoice number\",\"client\":\"client name\",\"issued\":\"YYYY-MM-DD\",\"due\":\"YYYY-MM-DD\",\"amt\":number,\"cur\":\"USD or CAD\",\"notes\":\"line items or description summary\"}\nIf a field is unknown use empty string or 0. Return ONLY the JSON object.";
+
+    var prompt = mode === "invoice" ? invPrompt : txPrompt;
+    var content = [];
+    if (isImg) {
+      content.push({type:"image",source:{type:"base64",media_type:mediaType,data:b64}});
+    } else if (isPdf) {
+      content.push({type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}});
+    }
+    content.push({type:"text",text:prompt});
+
+    fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:content}]})
+    })
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var text = data.content && data.content[0] && data.content[0].text;
+      if(!text) throw new Error("No response");
+      var clean = text.replace(/```json|```/g,"").trim();
+      var parsed = JSON.parse(clean);
+      onResult(parsed);
+    })
+    .catch(function(e){ console.error(e); onError("AI analysis failed: "+e.message); });
+  }
+
   function DocAttach(p){
     var docs=p.docs||[];
     var inputRef=useRef();
     var _=useState(false), over=_[0], setOver=_[1];
     var __=useState(null), preview=__[0], setPreview=__[1];
+    var ___=useState(null), analyzing=___[0], setAnalyzing=___[1];
     function addFiles(files){
       var arr=Array.from(files).filter(function(f){return f.size<4*1024*1024;});
       if(arr.length<files.length) alert("Files over 4MB skipped.");
       Promise.all(arr.map(fileToB64)).then(function(b64s){ p.onChange(docs.concat(b64s)); });
     }
+    function doAnalyze(d, i) {
+      setAnalyzing(i);
+      analyzeDoc(d, p.mode||"transaction", function(result){
+        setAnalyzing(null);
+        if(p.onAnalysis) p.onAnalysis(result);
+      }, function(err){
+        setAnalyzing(null);
+        alert(err);
+      });
+    }
     return h('div',null,
       h('div',{className:"dz"+(over?" over":""),onDragOver:function(e){e.preventDefault();setOver(true);},onDragLeave:function(){setOver(false);},onDrop:function(e){e.preventDefault();setOver(false);addFiles(e.dataTransfer.files);},onClick:function(){inputRef.current.click();},style:{fontSize:12,color:C.muted}},
-        "📎 Drop PDF / image or click to browse",h('div',{style:{fontSize:10,marginTop:2}},"Max 4 MB")
+        "📎 Drop PDF / image or click to browse",h('div',{style:{fontSize:10,marginTop:2}},"Max 4 MB · AI can analyze receipts, statements & invoices")
       ),
       h('input',{ref:inputRef,type:"file",accept:"application/pdf,image/*",multiple:true,style:{display:"none"},onChange:function(e){addFiles(e.target.files);}}),
       docs.length>0&&h('div',{style:{marginTop:8,display:"flex",flexDirection:"column",gap:4}},
         docs.map(function(d,i){
-          return h('div',{key:i,style:{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.bg,borderRadius:6,border:"1px solid "+C.border}},
+          var isAnalyzing = analyzing===i;
+          return h('div',{key:i,style:{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.bg,borderRadius:6,border:"1px solid "+C.border,flexWrap:"wrap"}},
             h('span',null,d.type==="application/pdf"?"📄":d.type.startsWith("image/")?"🖼":"📎"),
             h('span',{style:{fontSize:12,color:C.navy,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},d.name),
             h('span',{style:{fontSize:10,color:C.muted}},(d.size/1024).toFixed(0)+" KB"),
+            h('button',{onClick:function(){doAnalyze(d,i);},disabled:isAnalyzing,style:{background:isAnalyzing?"#f1f5f9":C.navy,color:isAnalyzing?C.muted:C.white,border:"none",borderRadius:5,padding:"3px 9px",cursor:isAnalyzing?"default":"pointer",fontSize:11,fontWeight:600}},isAnalyzing?"⏳ Analyzing...":"🤖 Analyze"),
             d.type.startsWith("image/")&&h('button',{onClick:function(){setPreview(d);},style:{background:"none",border:"none",cursor:"pointer",fontSize:11,color:C.green}},"👁"),
             d.type==="application/pdf"&&h('a',{href:d.data,download:d.name,style:{fontSize:11,color:C.green,textDecoration:"none"}},"⬇"),
             h('button',{onClick:function(){p.onChange(docs.filter(function(_,j){return j!==i;}));},style:{background:"none",border:"none",cursor:"pointer",fontSize:12,color:C.red}},"✕")
@@ -156,8 +205,25 @@ loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.
 
   function TxModal(p){
     var _=useState(Object.assign({date:now(),type:"Expense",cat:"Other Expense",desc:"",method:"Credit Card",amt:"",cur:"CAD",notes:"",docs:[]},p.init)), f=_[0], setF=_[1];
+    var aiMsg=useState(null), aiNote=aiMsg[0], setAiNote=aiMsg[1];
     function upd(k,v){ setF(function(prev){ var n=Object.assign({},prev); n[k]=v; return n; }); }
+    function onAnalysis(r){
+      setF(function(prev){
+        return Object.assign({},prev,{
+          date: r.date||prev.date,
+          desc: r.desc||prev.desc,
+          amt: r.amt||prev.amt,
+          cur: r.cur||prev.cur,
+          type: r.type||prev.type,
+          cat: r.cat||prev.cat,
+          method: r.method||prev.method,
+          notes: r.notes||prev.notes
+        });
+      });
+      setAiNote("✅ AI filled the fields — review and save.");
+    }
     return h(Modal,{title:p.init&&p.init.id?"Edit transaction":"Add transaction",onClose:p.onClose},
+      aiNote&&h('div',{style:{background:"#E6F2EC",border:"1px solid #2E7D5B",borderRadius:7,padding:"8px 12px",fontSize:12,color:"#2E7D5B",fontWeight:600}},aiNote),
       h(Field,{label:"Date"},h('input',{value:f.date,onChange:function(e){upd("date",e.target.value);},type:"date",style:inputS})),
       h(Field,{label:"Description"},h('input',{value:f.desc,onChange:function(e){upd("desc",e.target.value);},style:inputS})),
       h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
@@ -170,15 +236,31 @@ loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.
         h(Field,{label:"Method"},h('select',{value:f.method,onChange:function(e){upd("method",e.target.value);},style:inputS},METHODS.map(function(m){return h('option',{key:m},m);})))
       ),
       h(Field,{label:"Notes / Drive link"},h('textarea',{value:f.notes,onChange:function(e){upd("notes",e.target.value);},rows:2,style:Object.assign({},inputS,{resize:"none"}),placeholder:"Notes or paste a Google Drive link..."})),
-      h(Field,{label:"Attachments (PDF/image, max 4MB)"},h(DocAttach,{docs:f.docs,onChange:function(v){upd("docs",v);}})),
+      h(Field,{label:"Attachments — upload then click 🤖 Analyze to auto-fill"},h(DocAttach,{docs:f.docs,mode:"transaction",onChange:function(v){upd("docs",v);},onAnalysis:onAnalysis})),
       h('div',{style:{display:"flex",gap:8,marginTop:6}},h('button',{onClick:function(){p.onSave(f);},style:btnP},"Save"),h('button',{onClick:p.onClose,style:btnS},"Cancel"))
     );
   }
 
   function InvModal(p){
     var _=useState(Object.assign({num:"",client:"",issued:now(),due:"",amt:"",paid:"0",status:"Draft",cur:"USD",notes:"",docs:[]},p.init)), f=_[0], setF=_[1];
+    var aiMsg=useState(null), aiNote=aiMsg[0], setAiNote=aiMsg[1];
     function upd(k,v){ setF(function(prev){ var n=Object.assign({},prev); n[k]=v; return n; }); }
+    function onAnalysis(r){
+      setF(function(prev){
+        return Object.assign({},prev,{
+          num: r.num||prev.num,
+          client: r.client||prev.client,
+          issued: r.issued||prev.issued,
+          due: r.due||prev.due,
+          amt: r.amt||prev.amt,
+          cur: r.cur||prev.cur,
+          notes: r.notes||prev.notes
+        });
+      });
+      setAiNote("✅ AI filled the fields — review and save.");
+    }
     return h(Modal,{title:p.init&&p.init.id?"Edit invoice":"New invoice",onClose:p.onClose},
+      aiNote&&h('div',{style:{background:"#E6F2EC",border:"1px solid #2E7D5B",borderRadius:7,padding:"8px 12px",fontSize:12,color:"#2E7D5B",fontWeight:600}},aiNote),
       h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
         h(Field,{label:"Invoice #"},h('input',{value:f.num,onChange:function(e){upd("num",e.target.value);},style:inputS,placeholder:"JCF-XXX-001"})),
         h(Field,{label:"Currency"},h('select',{value:f.cur,onChange:function(e){upd("cur",e.target.value);},style:inputS},["USD","CAD"].map(function(o){return h('option',{key:o},o);})))
@@ -194,7 +276,7 @@ loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.
         h(Field,{label:"Status"},h('select',{value:f.status,onChange:function(e){upd("status",e.target.value);},style:inputS},STATUSES.map(function(s){return h('option',{key:s},s);})))
       ),
       h(Field,{label:"Notes / Drive link"},h('textarea',{value:f.notes,onChange:function(e){upd("notes",e.target.value);},rows:2,style:Object.assign({},inputS,{resize:"none"}),placeholder:"Notes or paste a Google Drive link..."})),
-      h(Field,{label:"Attachments (PDF/image, max 4MB)"},h(DocAttach,{docs:f.docs,onChange:function(v){upd("docs",v);}})),
+      h(Field,{label:"Attachments — upload then click 🤖 Analyze to auto-fill"},h(DocAttach,{docs:f.docs,mode:"invoice",onChange:function(v){upd("docs",v);},onAnalysis:onAnalysis})),
       h('div',{style:{display:"flex",gap:8,marginTop:6}},h('button',{onClick:function(){p.onSave(f);},style:btnP},"Save"),h('button',{onClick:p.onClose,style:btnS},"Cancel"))
     );
   }
