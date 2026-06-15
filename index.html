@@ -4,541 +4,433 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>JCFalke Inc — Team Bookkeeping</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCGVRseTLhLLyFUK1x_v79Fh9KbtrlGFkE",
-  authDomain: "jcfalke-books.firebaseapp.com",
-  projectId: "jcfalke-books",
-  storageBucket: "jcfalke-books.firebasestorage.app",
-  messagingSenderId: "173131206962",
-  appId: "1:173131206962:web:2d88d39f45283O5ac6472b",
-  measurementId: "G-QXKWZZK8EN"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-window.fbStore = {
-  async get(k) {
-    try {
-      const snap = await getDoc(doc(db, "bookkeeping", k));
-      return snap.exists() ? snap.data().value : null;
-    } catch(e) { console.error(e); return null; }
-  },
-  async set(k, v) {
-    try {
-      await setDoc(doc(db, "bookkeeping", k), { value: v });
-    } catch(e) { console.error(e); }
-  },
-  listen(k, cb) {
-    return onSnapshot(doc(db, "bookkeeping", k), snap => {
-      if (snap.exists()) cb(snap.data().value);
-    });
-  }
-};
-
-window.dispatchEvent(new Event("firebase-ready"));
-</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,sans-serif;background:#F1F5F9;min-height:100vh}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
 input,select,textarea,button{font-family:inherit}
-.drop-zone{border:2px dashed #E2E8F0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
-.drop-zone:hover,.drop-zone.over{border-color:#2E7D5B;background:#E6F2EC}
+.dz{border:2px dashed #E2E8F0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.dz:hover,.dz.over{border-color:#2E7D5B;background:#E6F2EC}
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#1F3A5F;color:#fff;font-family:system-ui;flex-direction:column;gap:12px"><div style="font-size:32px">💼</div><div style="font-weight:700;font-size:18px">JCFalke Inc</div><div style="color:#93b8d8;font-size:12px">Loading...</div></div></div>
+
 <script>
-const {useState,useEffect,useCallback,useRef}=React;
-const C={navy:"#1F3A5F",green:"#2E7D5B",greenL:"#E6F2EC",amber:"#B45309",amberL:"#FEF3C7",red:"#B91C1C",redL:"#FEF2F2",slate:"#475569",muted:"#94A3B8",border:"#E2E8F0",bg:"#F1F5F9",white:"#FFFFFF"};
-const now=()=>new Date().toISOString().slice(0,10);
-
-const SEED_TX=[
-  {id:"t1",date:"2026-04-28",type:"Expense",cat:"Other Expense",desc:"Loan payment NO.84398883 (RBC)",method:"Bank Transfer",amt:531.07,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing acct 00836 100-867-1",docs:[]},
-  {id:"t2",date:"2026-05-01",type:"Expense",cat:"Professional Fees",desc:"e-Transfer — Daniel Lam CPA",method:"Bank Transfer",amt:430.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
-  {id:"t3",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"INTERAC e-Transfer fee",method:"Bank Transfer",amt:1.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
-  {id:"t4",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"Misc payment — PAY-FILE FEES",method:"Bank Transfer",amt:2.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
-  {id:"t5",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"Monthly account fee (RBC)",method:"Bank Transfer",amt:7.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
-  {id:"t6",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"Electronic transaction fee 2x$0.75",method:"Bank Transfer",amt:1.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
-  {id:"t7",date:"2026-05-06",type:"Expense",cat:"Bank & Merchant Fees",desc:"Account activity fee (RBC)",method:"Bank Transfer",amt:36.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
-  {id:"t8",date:"2026-05-06",type:"Expense",cat:"Travel",desc:"Uber trip",method:"Credit Card",amt:10.33,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t9",date:"2026-05-07",type:"Expense",cat:"Utilities",desc:"Telus pre-auth payment",method:"Credit Card",amt:157.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t10",date:"2026-05-12",type:"Expense",cat:"Software & Subscriptions",desc:"Google One",method:"Credit Card",amt:28.34,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t11",date:"2026-05-15",type:"Expense",cat:"Travel",desc:"Car rental — Enterprise Augusta GA (mobilization)",method:"Credit Card",amt:471.69,cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Reimbursable; billed on JCF-CJX-260522-002 (capped at $1,200)",docs:[]},
-  {id:"t12",date:"2026-05-15",type:"Expense",cat:"Travel",desc:"Hotel — Hyatt House Augusta May 6-15",method:"Credit Card",amt:1610.10,cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Conf #53272290. Reimbursable; billed on JCF-CJX-260522-002 (capped)",docs:[]},
-  {id:"t13",date:"2026-05-19",type:"Expense",cat:"Software & Subscriptions",desc:"Microsoft #G159686409",method:"Credit Card",amt:8.94,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t14",date:"2026-05-23",type:"Expense",cat:"Utilities",desc:"Telus Mobility pre-auth",method:"Credit Card",amt:270.67,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t15",date:"2026-05-24",type:"Expense",cat:"Other Expense",desc:"PayPal — NorthBow Education",method:"Credit Card",amt:100.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Training/education. Avion Visa ...3629",docs:[]},
-  {id:"t16",date:"2026-05-25",type:"Expense",cat:"Shipping",desc:"Cole International Inc. — customs brokerage (1/2)",method:"Credit Card",amt:251.40,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t17",date:"2026-05-25",type:"Expense",cat:"Shipping",desc:"Cole International Inc. — customs brokerage (2/2)",method:"Credit Card",amt:251.40,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t18",date:"2026-05-25",type:"Expense",cat:"Software & Subscriptions",desc:"Microsoft MSFT E0700ZTKRT",method:"Credit Card",amt:5.67,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t19",date:"2026-05-26",type:"Expense",cat:"Insurance",desc:"Security National Insurance",method:"Credit Card",amt:195.09,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
-  {id:"t20",date:"2026-05-26",type:"Expense",cat:"Other Expense",desc:"Visa payment — prior statement balance",method:"Bank Transfer",amt:2496.91,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Lump payment of Apr 6-May 5 Visa balance",docs:[]},
-  {id:"t21",date:"2026-05-27",type:"Expense",cat:"Other Expense",desc:"Woodlawn Foundation — donation (USD 50.00 @ 1.4168)",method:"Credit Card",amt:70.84,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Charitable donation. Avion Visa ...3629",docs:[]},
-  {id:"t22",date:"2026-06-05",type:"Expense",cat:"Bank & Merchant Fees",desc:"Visa purchase interest @ 19.99%",method:"Credit Card",amt:53.62,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3445",docs:[]},
-];
-const SEED_INV=[
-  {id:"i1",num:"JCF-CJX-260522-001",client:'CJX Holdings LP DBA "CJX Systems"',issued:"2026-05-22",due:"2026-06-21",amt:8750.00,paid:0,status:"Sent",cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Augusta MOC (JCF-CJX-001). Wk20: 30h @$105 + 3d LOA @$140; Wk21: 40h @$105 + 7d LOA @$140.",docs:[]},
-  {id:"i2",num:"JCF-CJX-260522-002",client:'CJX Holdings LP DBA "CJX Systems"',issued:"2026-05-22",due:"2026-06-21",amt:1200.00,paid:0,status:"Sent",cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Reimbursable mobilization: car rental $471.69 + Hyatt $1,610.10 = $2,081.79; capped at $1,200 authorized.",docs:[]},
-  {id:"i3",num:"JCF-CJX-260605-002",client:'CJX Holdings LP DBA "CJX Systems"',issued:"2026-06-05",due:"2026-07-05",amt:12460.00,paid:0,status:"Sent",cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Augusta MOC. Wk21+22: 80h @$105 = $8,400; June LOA 29d @$140 = $4,060.",docs:[]},
-];
-
-const CATS=["Sales","Services","Consulting","Professional Fees","Travel","Utilities","Software & Subscriptions","Rent","Payroll & Wages","Insurance","Shipping","Marketing & Advertising","Bank & Merchant Fees","Other Expense","Other Income"];
-const METHODS=["Bank Transfer","Credit Card","Debit Card","Cash","Check","PayPal","Stripe","Other"];
-const STATUSES=["Draft","Sent","Partial","Paid","Overdue"];
-
-const fmt$=(n,cur="")=>{const s=Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});return`${n<0?"-":""}$${s}${cur?` ${cur}`:""}`;};
-const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"—";
-const monthKey=d=>d?d.slice(0,7):"";
-const daysUntil=d=>{if(!d)return null;const diff=(new Date(d+"T12:00:00")-new Date())/86400000;return Math.round(diff);};
-const uid=()=>Math.random().toString(36).slice(2,9);
-const isHttpLink=url=>/^https?:\/\//.test(url.trim());
-const isDriveLink=url=>/drive\.google\.com|docs\.google\.com/.test(url);
-
-function NotesWithLinks({text}){
-  if(!text)return null;
-  const parts=text.split(/(https?:\/\/[^\s]+)/g);
-  return React.createElement("span",null,...parts.map((p,i)=>{
-    if(isHttpLink(p)){
-      return React.createElement("a",{key:i,href:p,target:"_blank",rel:"noopener noreferrer",style:{color:C.green,textDecoration:"underline",marginLeft:2}},isDriveLink(p)?"📁 Drive doc":"🔗 Link");
-    }
-    return p;
-  }));
+// Load scripts sequentially — each waits for the previous to finish
+function loadScript(src, cb) {
+  var s = document.createElement('script');
+  s.src = src;
+  s.onload = cb;
+  s.onerror = function() { console.error('Failed to load: ' + src); cb(); };
+  document.head.appendChild(s);
 }
 
-function fileToBase64(file){
-  return new Promise((res,rej)=>{
-    const r=new FileReader();
-    r.onload=()=>res({name:file.name,type:file.type,size:file.size,data:r.result});
-    r.onerror=rej;
-    r.readAsDataURL(file);
+loadScript('https://unpkg.com/react@18/umd/react.production.min.js', function() {
+loadScript('https://unpkg.com/react-dom@18/umd/react-dom.production.min.js', function() {
+loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js', function() {
+loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js', function() {
+
+  // ── Firebase init ──────────────────────────────────────────────────────────
+  firebase.initializeApp({
+    apiKey: "AIzaSyCGVRseTLhLLyFUK1x_v79Fh9KbtrlGFkE",
+    authDomain: "jcfalke-books.firebaseapp.com",
+    projectId: "jcfalke-books",
+    storageBucket: "jcfalke-books.firebasestorage.app",
+    messagingSenderId: "173131206962",
+    appId: "1:173131206962:web:2d88d39f4528305ac6472b"
   });
-}
-
-function DocAttachments({docs=[],onChange}){
-  const inputRef=useRef();
-  const[over,setOver]=useState(false);
-  const[preview,setPreview]=useState(null);
-  const addFiles=async files=>{
-    const arr=Array.from(files).filter(f=>f.size<4*1024*1024);
-    if(arr.length<files.length)alert("Files over 4 MB were skipped.");
-    const b64s=await Promise.all(arr.map(fileToBase64));
-    onChange([...(docs||[]),...b64s]);
-  };
-  const removeDoc=idx=>onChange(docs.filter((_,i)=>i!==idx));
-  const iconFor=type=>type==="application/pdf"?"📄":type.startsWith("image/")?"🖼":"📎";
-  return React.createElement("div",null,
-    React.createElement("div",{className:"drop-zone"+(over?" over":""),onDragOver:e=>{e.preventDefault();setOver(true)},onDragLeave:()=>setOver(false),onDrop:e=>{e.preventDefault();setOver(false);addFiles(e.dataTransfer.files)},onClick:()=>inputRef.current.click(),style:{fontSize:12,color:C.muted}},
-      "📎 Drop PDF / image here or click to browse",
-      React.createElement("div",{style:{fontSize:10,marginTop:2}},"Max 4 MB per file")
-    ),
-    React.createElement("input",{ref:inputRef,type:"file",accept:"application/pdf,image/*",multiple:true,style:{display:"none"},onChange:e=>addFiles(e.target.files)}),
-    docs&&docs.length>0&&React.createElement("div",{style:{marginTop:8,display:"flex",flexDirection:"column",gap:4}},
-      docs.map((d,i)=>React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.bg,borderRadius:6,border:"1px solid "+C.border}},
-        React.createElement("span",null,iconFor(d.type)),
-        React.createElement("span",{style:{fontSize:12,color:C.navy,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},d.name),
-        React.createElement("span",{style:{fontSize:10,color:C.muted}},(d.size/1024).toFixed(0)+" KB"),
-        d.type.startsWith("image/")&&React.createElement("button",{onClick:()=>setPreview(d),style:{background:"none",border:"none",cursor:"pointer",fontSize:11,color:C.green}},"👁 View"),
-        d.type==="application/pdf"&&React.createElement("a",{href:d.data,download:d.name,style:{fontSize:11,color:C.green,textDecoration:"none"}},"⬇ Save"),
-        React.createElement("button",{onClick:()=>removeDoc(i),style:{background:"none",border:"none",cursor:"pointer",fontSize:12,color:C.red}},"✕")
-      ))
-    ),
-    preview&&React.createElement("div",{style:{marginTop:8,border:"1px solid "+C.border,borderRadius:8,overflow:"hidden",position:"relative"}},
-      React.createElement("button",{onClick:()=>setPreview(null),style:{position:"absolute",top:6,right:6,background:C.navy,color:C.white,border:"none",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontSize:11,zIndex:1}},"✕ Close"),
-      React.createElement("img",{src:preview.data,alt:preview.name,style:{width:"100%",display:"block",maxHeight:300,objectFit:"contain",background:"#f8fafc"}})
-    )
-  );
-}
-
-function DocBadge({docs=[]}){
-  if(!docs||!docs.length)return null;
-  return React.createElement("span",{style:{fontSize:10,background:C.amberL,color:C.amber,borderRadius:10,padding:"1px 7px",fontWeight:600,marginLeft:4}},"📎 "+docs.length);
-}
-
-function App(){
-  const[ready,setReady]=useState(false);
-  const[tab,setTab]=useState("dashboard");
-  const[txs,setTxs]=useState([]);
-  const[invs,setInvs]=useState([]);
-  const[me,setMe]=useState("");
-  const[nameSet,setNameSet]=useState(false);
-  const[syncing,setSyncing]=useState(false);
-  const[lastSync,setLastSync]=useState(null);
-  const[toast,setToast]=useState(null);
-  const[txForm,setTxForm]=useState(null);
-  const[invForm,setInvForm]=useState(null);
-  const[filter,setFilter]=useState({month:"",type:"",search:""});
-  const[invFilter,setInvFilter]=useState({status:"",search:""});
-  const[expandId,setExpandId]=useState(null);
-  const seededRef=useRef(false);
-
-  // wait for firebase module to load
-  useEffect(()=>{
-    if(window.fbStore){setReady(true);return;}
-    const h=()=>setReady(true);
-    window.addEventListener("firebase-ready",h);
-    return()=>window.removeEventListener("firebase-ready",h);
-  },[]);
-
-  // seed + real-time listeners
-  useEffect(()=>{
-    if(!ready)return;
-    const fb=window.fbStore;
-    let unsubTx,unsubInv;
-    (async()=>{
-      setSyncing(true);
-      const[t,i]=await Promise.all([fb.get("jcf-tx"),fb.get("jcf-inv")]);
-      if(!t&&!i&&!seededRef.current){
-        seededRef.current=true;
-        await fb.set("jcf-tx",SEED_TX);
-        await fb.set("jcf-inv",SEED_INV);
-      }
-      setLastSync(new Date());
-      setSyncing(false);
-      // live listeners
-      unsubTx=fb.listen("jcf-tx",v=>{ setTxs(v.map(x=>({...x,docs:x.docs||[]}))); setLastSync(new Date()); });
-      unsubInv=fb.listen("jcf-inv",v=>{ setInvs(v.map(x=>({...x,docs:x.docs||[]}))); setLastSync(new Date()); });
-    })();
-    return()=>{ unsubTx&&unsubTx(); unsubInv&&unsubInv(); };
-  },[ready]);
-
-  useEffect(()=>{try{const n=localStorage.getItem("jcf-me");if(n){setMe(n);setNameSet(true);}}catch{}},[]);
-  const saveName=n=>{const name=n.trim();if(!name)return;try{localStorage.setItem("jcf-me",name);}catch{}setMe(name);setNameSet(true);};
-  const showToast=(msg,ok=true)=>{setToast({msg,ok});setTimeout(()=>setToast(null),3000);};
-
-  const saveTx=async form=>{
-    const entry={...form,id:form.id||uid(),by:me,at:now(),amt:parseFloat(form.amt)||0,docs:form.docs||[]};
-    const next=form.id?txs.map(t=>t.id===form.id?entry:t):[entry,...txs];
-    await window.fbStore.set("jcf-tx",next);
-    setTxForm(null);showToast(form.id?"Transaction updated":"Transaction added");
-  };
-  const deleteTx=async id=>{
-    const next=txs.filter(t=>t.id!==id);
-    await window.fbStore.set("jcf-tx",next);
-    showToast("Transaction removed",false);
-  };
-  const saveInv=async form=>{
-    const entry={...form,id:form.id||uid(),by:me,at:now(),amt:parseFloat(form.amt)||0,paid:parseFloat(form.paid)||0,docs:form.docs||[]};
-    const next=form.id?invs.map(i=>i.id===form.id?entry:i):[entry,...invs];
-    await window.fbStore.set("jcf-inv",next);
-    setInvForm(null);showToast(form.id?"Invoice updated":"Invoice saved");
-  };
-  const markPaid=async inv=>{
-    const next=invs.map(i=>i.id===inv.id?{...i,paid:i.amt,status:"Paid",at:now(),by:me}:i);
-    await window.fbStore.set("jcf-inv",next);
-    showToast(inv.num+" marked as Paid ✓");
-  };
-  const exportMonth=month=>{
-    const rows=txs.filter(t=>monthKey(t.date)===month).sort((a,b)=>a.date.localeCompare(b.date));
-    if(!rows.length){showToast("No transactions for that month",false);return;}
-    const hdr=["Date","Type","Category","Description","Method","Amount","Currency","Notes","Docs","Added By"];
-    const csv=[hdr,...rows.map(r=>[r.date,r.type,r.cat,'"'+r.desc+'"',r.method,r.amt,r.cur||"",'"'+(r.notes||"")+'"',r.docs?.length||0,r.by||""])].map(r=>r.join(",")).join("\n");
-    const blob=new Blob([csv],{type:"text/csv"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="JCFalke-"+month+".csv";a.click();
-    showToast("Downloaded "+month+" CSV");
+  var db = firebase.firestore();
+  var fbStore = {
+    get: function(k) {
+      return db.collection('bookkeeping').doc(k).get().then(function(s){ return s.exists ? s.data().value : null; }).catch(function(e){ console.error(e); return null; });
+    },
+    set: function(k, v) {
+      return db.collection('bookkeeping').doc(k).set({ value: v }).catch(function(e){ console.error(e); });
+    },
+    listen: function(k, cb) {
+      return db.collection('bookkeeping').doc(k).onSnapshot(function(s){ if(s.exists) cb(s.data().value); });
+    }
   };
 
-  const totalInc=txs.filter(t=>t.type==="Income").reduce((s,t)=>s+t.amt,0);
-  const totalExp=txs.filter(t=>t.type==="Expense").reduce((s,t)=>s+t.amt,0);
-  const totalAR=invs.filter(i=>i.status!=="Paid").reduce((s,i)=>s+(i.amt-(i.paid||0)),0);
-  const overdue=invs.filter(i=>{const d=daysUntil(i.due);return d!==null&&d<0&&i.status!=="Paid";});
-  const months=[...new Set(txs.map(t=>monthKey(t.date)).filter(Boolean))].sort().reverse();
-  const filteredTxs=txs.filter(t=>{
-    if(filter.month&&monthKey(t.date)!==filter.month)return false;
-    if(filter.type&&t.type!==filter.type)return false;
-    if(filter.search&&!`${t.desc}${t.cat}`.toLowerCase().includes(filter.search.toLowerCase()))return false;
-    return true;
-  }).sort((a,b)=>b.date.localeCompare(a.date));
-  const filteredInvs=invs.filter(i=>{
-    if(invFilter.status&&i.status!==invFilter.status)return false;
-    if(invFilter.search&&!`${i.num}${i.client}`.toLowerCase().includes(invFilter.search.toLowerCase()))return false;
-    return true;
-  }).sort((a,b)=>b.issued.localeCompare(a.issued));
+  // ── App ────────────────────────────────────────────────────────────────────
+  var useState=React.useState, useEffect=React.useEffect, useRef=React.useRef, useCallback=React.useCallback;
+  var h=React.createElement;
+  var C={navy:"#1F3A5F",green:"#2E7D5B",greenL:"#E6F2EC",amber:"#B45309",amberL:"#FEF3C7",red:"#B91C1C",redL:"#FEF2F2",slate:"#475569",muted:"#94A3B8",border:"#E2E8F0",bg:"#F1F5F9",white:"#FFFFFF"};
+  var now=function(){ return new Date().toISOString().slice(0,10); };
+  var fmt$=function(n,cur){ var s=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); return (n<0?'-':'')+'$'+s+(cur?' '+cur:''); };
+  var fmtDate=function(d){ return d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'; };
+  var monthKey=function(d){ return d ? d.slice(0,7) : ''; };
+  var daysUntil=function(d){ if(!d) return null; return Math.round((new Date(d+'T12:00:00')-new Date())/86400000); };
+  var uid=function(){ return Math.random().toString(36).slice(2,9); };
 
-  const statusColor=s=>({Paid:{bg:"#dcfce7",text:"#15803d"},Sent:{bg:"#dbeafe",text:"#1d4ed8"},Draft:{bg:"#f1f5f9",text:"#64748b"},Partial:{bg:"#fef3c7",text:"#b45309"},Overdue:{bg:"#fee2e2",text:"#b91c1c"}}[s]||{bg:"#f1f5f9",text:"#64748b"});
-  const inputS={width:"100%",border:"1px solid "+C.border,borderRadius:7,padding:"8px 10px",fontSize:13,outline:"none",boxSizing:"border-box",background:C.white};
-  const btnPrimary={background:C.green,color:C.white,border:"none",borderRadius:7,padding:"8px 20px",fontSize:13,fontWeight:700,cursor:"pointer",flex:1};
-  const btnSecondary={background:C.bg,color:C.slate,border:"1px solid "+C.border,borderRadius:7,padding:"8px 16px",fontSize:13,cursor:"pointer"};
+  var SEED_TX=[
+    {id:"t1",date:"2026-04-28",type:"Expense",cat:"Other Expense",desc:"Loan payment NO.84398883 (RBC)",method:"Bank Transfer",amt:531.07,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing acct 00836 100-867-1",docs:[]},
+    {id:"t2",date:"2026-05-01",type:"Expense",cat:"Professional Fees",desc:"e-Transfer — Daniel Lam CPA",method:"Bank Transfer",amt:430.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
+    {id:"t3",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"INTERAC e-Transfer fee",method:"Bank Transfer",amt:1.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
+    {id:"t4",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"Misc payment — PAY-FILE FEES",method:"Bank Transfer",amt:2.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
+    {id:"t5",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"Monthly account fee (RBC)",method:"Bank Transfer",amt:7.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
+    {id:"t6",date:"2026-05-01",type:"Expense",cat:"Bank & Merchant Fees",desc:"Electronic transaction fee 2x$0.75",method:"Bank Transfer",amt:1.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
+    {id:"t7",date:"2026-05-06",type:"Expense",cat:"Bank & Merchant Fees",desc:"Account activity fee (RBC)",method:"Bank Transfer",amt:36.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"RBC chequing",docs:[]},
+    {id:"t8",date:"2026-05-06",type:"Expense",cat:"Travel",desc:"Uber trip",method:"Credit Card",amt:10.33,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t9",date:"2026-05-07",type:"Expense",cat:"Utilities",desc:"Telus pre-auth payment",method:"Credit Card",amt:157.50,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t10",date:"2026-05-12",type:"Expense",cat:"Software & Subscriptions",desc:"Google One",method:"Credit Card",amt:28.34,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t11",date:"2026-05-15",type:"Expense",cat:"Travel",desc:"Car rental — Enterprise Augusta GA",method:"Credit Card",amt:471.69,cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Reimbursable; billed on JCF-CJX-260522-002",docs:[]},
+    {id:"t12",date:"2026-05-15",type:"Expense",cat:"Travel",desc:"Hotel — Hyatt House Augusta May 6-15",method:"Credit Card",amt:1610.10,cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Conf #53272290. Reimbursable; billed on JCF-CJX-260522-002",docs:[]},
+    {id:"t13",date:"2026-05-19",type:"Expense",cat:"Software & Subscriptions",desc:"Microsoft #G159686409",method:"Credit Card",amt:8.94,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t14",date:"2026-05-23",type:"Expense",cat:"Utilities",desc:"Telus Mobility pre-auth",method:"Credit Card",amt:270.67,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t15",date:"2026-05-24",type:"Expense",cat:"Other Expense",desc:"PayPal — NorthBow Education",method:"Credit Card",amt:100.00,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Training/education",docs:[]},
+    {id:"t16",date:"2026-05-25",type:"Expense",cat:"Shipping",desc:"Cole International — customs brokerage (1/2)",method:"Credit Card",amt:251.40,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t17",date:"2026-05-25",type:"Expense",cat:"Shipping",desc:"Cole International — customs brokerage (2/2)",method:"Credit Card",amt:251.40,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t18",date:"2026-05-25",type:"Expense",cat:"Software & Subscriptions",desc:"Microsoft MSFT E0700ZTKRT",method:"Credit Card",amt:5.67,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t19",date:"2026-05-26",type:"Expense",cat:"Insurance",desc:"Security National Insurance",method:"Credit Card",amt:195.09,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3629",docs:[]},
+    {id:"t20",date:"2026-05-26",type:"Expense",cat:"Other Expense",desc:"Visa payment — prior statement balance",method:"Bank Transfer",amt:2496.91,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Lump payment Apr 6-May 5",docs:[]},
+    {id:"t21",date:"2026-05-27",type:"Expense",cat:"Other Expense",desc:"Woodlawn Foundation donation",method:"Credit Card",amt:70.84,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"USD 50.00 @ 1.4168. Avion Visa ...3629",docs:[]},
+    {id:"t22",date:"2026-06-05",type:"Expense",cat:"Bank & Merchant Fees",desc:"Visa purchase interest @ 19.99%",method:"Credit Card",amt:53.62,cur:"CAD",by:"Carolina",at:"2026-06-13",notes:"Avion Visa ...3445",docs:[]}
+  ];
+  var SEED_INV=[
+    {id:"i1",num:"JCF-CJX-260522-001",client:'CJX Holdings LP DBA "CJX Systems"',issued:"2026-05-22",due:"2026-06-21",amt:8750.00,paid:0,status:"Sent",cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Augusta MOC. Wk20: 30h@$105+3d LOA@$140; Wk21: 40h@$105+7d LOA@$140.",docs:[]},
+    {id:"i2",num:"JCF-CJX-260522-002",client:'CJX Holdings LP DBA "CJX Systems"',issued:"2026-05-22",due:"2026-06-21",amt:1200.00,paid:0,status:"Sent",cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Reimbursable mobilization capped at $1,200.",docs:[]},
+    {id:"i3",num:"JCF-CJX-260605-002",client:'CJX Holdings LP DBA "CJX Systems"',issued:"2026-06-05",due:"2026-07-05",amt:12460.00,paid:0,status:"Sent",cur:"USD",by:"Carolina",at:"2026-06-13",notes:"Augusta MOC. Wk21+22: 80h@$105=$8,400; June LOA 29d@$140=$4,060.",docs:[]}
+  ];
+  var CATS=["Sales","Services","Consulting","Professional Fees","Travel","Utilities","Software & Subscriptions","Rent","Payroll & Wages","Insurance","Shipping","Marketing & Advertising","Bank & Merchant Fees","Other Expense","Other Income"];
+  var METHODS=["Bank Transfer","Credit Card","Debit Card","Cash","Check","PayPal","Stripe","Other"];
+  var STATUSES=["Draft","Sent","Partial","Paid","Overdue"];
 
-  const Modal=({title,children,onClose})=>React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,padding:16}},
-    React.createElement("div",{style:{background:C.white,borderRadius:14,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,.2)"}},
-      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid "+C.border}},
-        React.createElement("div",{style:{fontWeight:700,fontSize:15,color:C.navy}},title),
-        React.createElement("button",{onClick:onClose,style:{background:"none",border:"none",fontSize:18,cursor:"pointer",color:C.muted}},"✕")
+  function statusColor(s){ return ({Paid:{bg:"#dcfce7",text:"#15803d"},Sent:{bg:"#dbeafe",text:"#1d4ed8"},Draft:{bg:"#f1f5f9",text:"#64748b"},Partial:{bg:"#fef3c7",text:"#b45309"},Overdue:{bg:"#fee2e2",text:"#b91c1c"}}[s])||{bg:"#f1f5f9",text:"#64748b"}; }
+  var inputS={width:"100%",border:"1px solid "+C.border,borderRadius:7,padding:"8px 10px",fontSize:13,outline:"none",boxSizing:"border-box",background:C.white};
+  var btnP={background:C.green,color:C.white,border:"none",borderRadius:7,padding:"8px 20px",fontSize:13,fontWeight:700,cursor:"pointer",flex:1};
+  var btnS={background:C.bg,color:C.slate,border:"1px solid "+C.border,borderRadius:7,padding:"8px 16px",fontSize:13,cursor:"pointer"};
+
+  function fileToB64(file){ return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){ res({name:file.name,type:file.type,size:file.size,data:r.result}); }; r.onerror=rej; r.readAsDataURL(file); }); }
+
+  function DocBadge(p){ if(!p.docs||!p.docs.length) return null; return h('span',{style:{fontSize:10,background:C.amberL,color:C.amber,borderRadius:10,padding:"1px 7px",fontWeight:600,marginLeft:4}},"📎 "+p.docs.length); }
+
+  function DocAttach(p){
+    var docs=p.docs||[];
+    var inputRef=useRef();
+    var _=useState(false), over=_[0], setOver=_[1];
+    var __=useState(null), preview=__[0], setPreview=__[1];
+    function addFiles(files){
+      var arr=Array.from(files).filter(function(f){return f.size<4*1024*1024;});
+      if(arr.length<files.length) alert("Files over 4MB skipped.");
+      Promise.all(arr.map(fileToB64)).then(function(b64s){ p.onChange(docs.concat(b64s)); });
+    }
+    return h('div',null,
+      h('div',{className:"dz"+(over?" over":""),onDragOver:function(e){e.preventDefault();setOver(true);},onDragLeave:function(){setOver(false);},onDrop:function(e){e.preventDefault();setOver(false);addFiles(e.dataTransfer.files);},onClick:function(){inputRef.current.click();},style:{fontSize:12,color:C.muted}},
+        "📎 Drop PDF / image or click to browse",h('div',{style:{fontSize:10,marginTop:2}},"Max 4 MB")
       ),
-      React.createElement("div",{style:{padding:"16px 20px 20px",display:"flex",flexDirection:"column",gap:12}},children)
-    )
-  );
-  const Field=({label,children})=>React.createElement("div",null,
-    React.createElement("div",{style:{fontSize:11,fontWeight:600,color:C.slate,marginBottom:4,textTransform:"uppercase",letterSpacing:".05em"}},label),children
-  );
-
-  const TxFormModal=({init,onSave,onClose})=>{
-    const[f,setF]=useState({date:now(),type:"Expense",cat:"Other Expense",desc:"",method:"Credit Card",amt:"",cur:"CAD",notes:"",docs:[],...init});
-    const upd=(k,v)=>setF(p=>({...p,[k]:v}));
-    return React.createElement(Modal,{title:init?.id?"Edit transaction":"Add transaction",onClose},
-      React.createElement(Field,{label:"Date"},React.createElement("input",{value:f.date,onChange:e=>upd("date",e.target.value),type:"date",style:inputS})),
-      React.createElement(Field,{label:"Description"},React.createElement("input",{value:f.desc,onChange:e=>upd("desc",e.target.value),style:inputS})),
-      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-        React.createElement(Field,{label:"Type"},React.createElement("select",{value:f.type,onChange:e=>upd("type",e.target.value),style:inputS},["Income","Expense"].map(o=>React.createElement("option",{key:o},o)))),
-        React.createElement(Field,{label:"Currency"},React.createElement("select",{value:f.cur,onChange:e=>upd("cur",e.target.value),style:inputS},["CAD","USD"].map(o=>React.createElement("option",{key:o},o))))
+      h('input',{ref:inputRef,type:"file",accept:"application/pdf,image/*",multiple:true,style:{display:"none"},onChange:function(e){addFiles(e.target.files);}}),
+      docs.length>0&&h('div',{style:{marginTop:8,display:"flex",flexDirection:"column",gap:4}},
+        docs.map(function(d,i){
+          return h('div',{key:i,style:{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.bg,borderRadius:6,border:"1px solid "+C.border}},
+            h('span',null,d.type==="application/pdf"?"📄":d.type.startsWith("image/")?"🖼":"📎"),
+            h('span',{style:{fontSize:12,color:C.navy,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},d.name),
+            h('span',{style:{fontSize:10,color:C.muted}},(d.size/1024).toFixed(0)+" KB"),
+            d.type.startsWith("image/")&&h('button',{onClick:function(){setPreview(d);},style:{background:"none",border:"none",cursor:"pointer",fontSize:11,color:C.green}},"👁"),
+            d.type==="application/pdf"&&h('a',{href:d.data,download:d.name,style:{fontSize:11,color:C.green,textDecoration:"none"}},"⬇"),
+            h('button',{onClick:function(){p.onChange(docs.filter(function(_,j){return j!==i;}));},style:{background:"none",border:"none",cursor:"pointer",fontSize:12,color:C.red}},"✕")
+          );
+        })
       ),
-      React.createElement(Field,{label:"Category"},React.createElement("select",{value:f.cat,onChange:e=>upd("cat",e.target.value),style:inputS},CATS.map(c=>React.createElement("option",{key:c},c)))),
-      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-        React.createElement(Field,{label:"Amount"},React.createElement("input",{value:f.amt,onChange:e=>upd("amt",e.target.value),type:"number",step:"0.01",style:inputS,placeholder:"0.00"})),
-        React.createElement(Field,{label:"Method"},React.createElement("select",{value:f.method,onChange:e=>upd("method",e.target.value),style:inputS},METHODS.map(m=>React.createElement("option",{key:m},m))))
-      ),
-      React.createElement(Field,{label:"Notes / Drive link"},React.createElement("textarea",{value:f.notes,onChange:e=>upd("notes",e.target.value),rows:2,style:{...inputS,resize:"none"},placeholder:"Notes or paste a Google Drive link..."})),
-      React.createElement(Field,{label:"Attachments (PDF / image, max 4 MB)"},React.createElement(DocAttachments,{docs:f.docs,onChange:v=>upd("docs",v)})),
-      React.createElement("div",{style:{display:"flex",gap:8,marginTop:6}},
-        React.createElement("button",{onClick:()=>onSave(f),style:btnPrimary},"Save"),
-        React.createElement("button",{onClick:onClose,style:btnSecondary},"Cancel")
-      )
-    );
-  };
-
-  const InvFormModal=({init,onSave,onClose})=>{
-    const[f,setF]=useState({num:"",client:"",issued:now(),due:"",amt:"",paid:"0",status:"Draft",cur:"USD",notes:"",docs:[],...init});
-    const upd=(k,v)=>setF(p=>({...p,[k]:v}));
-    return React.createElement(Modal,{title:init?.id?"Edit invoice":"New invoice",onClose},
-      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-        React.createElement(Field,{label:"Invoice #"},React.createElement("input",{value:f.num,onChange:e=>upd("num",e.target.value),style:inputS,placeholder:"JCF-XXX-001"})),
-        React.createElement(Field,{label:"Currency"},React.createElement("select",{value:f.cur,onChange:e=>upd("cur",e.target.value),style:inputS},["USD","CAD"].map(o=>React.createElement("option",{key:o},o))))
-      ),
-      React.createElement(Field,{label:"Client"},React.createElement("input",{value:f.client,onChange:e=>upd("client",e.target.value),style:inputS})),
-      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-        React.createElement(Field,{label:"Issue date"},React.createElement("input",{value:f.issued,onChange:e=>upd("issued",e.target.value),type:"date",style:inputS})),
-        React.createElement(Field,{label:"Due date"},React.createElement("input",{value:f.due,onChange:e=>upd("due",e.target.value),type:"date",style:inputS}))
-      ),
-      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
-        React.createElement(Field,{label:"Invoice amount"},React.createElement("input",{value:f.amt,onChange:e=>upd("amt",e.target.value),type:"number",step:"0.01",style:inputS})),
-        React.createElement(Field,{label:"Amount paid"},React.createElement("input",{value:f.paid,onChange:e=>upd("paid",e.target.value),type:"number",step:"0.01",style:inputS})),
-        React.createElement(Field,{label:"Status"},React.createElement("select",{value:f.status,onChange:e=>upd("status",e.target.value),style:inputS},STATUSES.map(s=>React.createElement("option",{key:s},s))))
-      ),
-      React.createElement(Field,{label:"Notes / Drive link"},React.createElement("textarea",{value:f.notes,onChange:e=>upd("notes",e.target.value),rows:2,style:{...inputS,resize:"none"},placeholder:"Notes or paste a Google Drive link..."})),
-      React.createElement(Field,{label:"Attachments (PDF / image, max 4 MB)"},React.createElement(DocAttachments,{docs:f.docs,onChange:v=>upd("docs",v)})),
-      React.createElement("div",{style:{display:"flex",gap:8,marginTop:6}},
-        React.createElement("button",{onClick:()=>onSave(f),style:btnPrimary},"Save"),
-        React.createElement("button",{onClick:onClose,style:btnSecondary},"Cancel")
-      )
-    );
-  };
-
-  const Kpi=({label,value,sub,accent})=>React.createElement("div",{style:{background:C.white,borderRadius:10,padding:"14px 16px",border:"1px solid "+C.border,flex:1,minWidth:130}},
-    React.createElement("div",{style:{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}},label),
-    React.createElement("div",{style:{fontSize:20,fontWeight:800,color:accent||C.navy,letterSpacing:"-.5px"}},value),
-    sub&&React.createElement("div",{style:{fontSize:11,color:C.muted,marginTop:3}},sub)
-  );
-
-  const MonthRow=({m})=>{
-    const mTxs=txs.filter(t=>monthKey(t.date)===m);
-    const inc=mTxs.filter(t=>t.type==="Income").reduce((s,t)=>s+t.amt,0);
-    const exp=mTxs.filter(t=>t.type==="Expense").reduce((s,t)=>s+t.amt,0);
-    const net=inc-exp;
-    const label=new Date(m+"-01T12:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"});
-    return React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:7,background:C.bg,marginBottom:4}},
-      React.createElement("div",{style:{flex:1,fontSize:13,fontWeight:600,color:C.navy}},label),
-      React.createElement("div",{style:{fontSize:12,color:C.green,minWidth:80,textAlign:"right"}},fmt$(inc)),
-      React.createElement("div",{style:{fontSize:12,color:C.red,minWidth:80,textAlign:"right"}},fmt$(exp)),
-      React.createElement("div",{style:{fontSize:12,fontWeight:700,color:net>=0?C.green:C.red,minWidth:80,textAlign:"right"}},fmt$(net)),
-      React.createElement("button",{onClick:()=>exportMonth(m),style:{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,padding:"2px 4px"}},"⬇")
-    );
-  };
-
-  if(!ready||(!txs.length&&!invs.length&&syncing)){
-    return React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:C.navy,color:C.white,fontSize:14,flexDirection:"column",gap:12}},
-      React.createElement("div",{style:{fontSize:32}},"💼"),
-      React.createElement("div",{style:{fontWeight:700}},"JCFalke Inc"),
-      React.createElement("div",{style:{color:"#93b8d8",fontSize:12}},"Connecting to Firebase...")
-    );
-  }
-
-  if(!nameSet){
-    return React.createElement("div",{style:{background:C.navy,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}},
-      React.createElement("div",{style:{background:C.white,borderRadius:16,padding:36,width:320,textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}},
-        React.createElement("div",{style:{fontSize:36,marginBottom:12}},"💼"),
-        React.createElement("div",{style:{fontSize:18,fontWeight:700,color:C.navy,marginBottom:4}},"JCFalke Inc"),
-        React.createElement("div",{style:{fontSize:13,color:C.muted,marginBottom:24}},"Team Bookkeeping — shared workspace"),
-        React.createElement("input",{id:"nameInput",autoFocus:true,placeholder:"Your name (e.g. Carolina)",style:{width:"100%",border:"1px solid "+C.border,borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",marginBottom:14,boxSizing:"border-box"},onKeyDown:e=>e.key==="Enter"&&saveName(e.target.value)}),
-        React.createElement("button",{style:{width:"100%",background:C.green,color:C.white,border:"none",borderRadius:8,padding:"10px 0",fontSize:14,fontWeight:700,cursor:"pointer"},onClick:()=>saveName(document.getElementById("nameInput").value)},"Enter workspace →"),
-        React.createElement("div",{style:{fontSize:11,color:C.muted,marginTop:12}},"Changes sync live across all team members.")
+      preview&&h('div',{style:{marginTop:8,border:"1px solid "+C.border,borderRadius:8,overflow:"hidden",position:"relative"}},
+        h('button',{onClick:function(){setPreview(null);},style:{position:"absolute",top:6,right:6,background:C.navy,color:C.white,border:"none",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontSize:11,zIndex:1}},"✕"),
+        h('img',{src:preview.data,style:{width:"100%",display:"block",maxHeight:300,objectFit:"contain"}})
       )
     );
   }
 
-  return React.createElement("div",{style:{background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column"}},
-    React.createElement("header",{style:{background:C.navy,padding:"12px 20px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 2px 8px rgba(0,0,0,.25)"}},
-      React.createElement("div",{style:{width:32,height:32,background:C.green,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}},"💼"),
-      React.createElement("div",{style:{flex:1}},
-        React.createElement("div",{style:{color:C.white,fontSize:15,fontWeight:700}},"JCFalke Inc"),
-        React.createElement("div",{style:{color:"#93b8d8",fontSize:10,marginTop:1}},"Live · Firebase sync")
-      ),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-        React.createElement("div",{style:{width:7,height:7,borderRadius:"50%",background:"#4ade80"}}),
-        React.createElement("div",{style:{fontSize:11,color:"#93b8d8"}},"👤 "+me),
-        lastSync&&React.createElement("div",{style:{fontSize:10,color:"#6b8fb3"}},"synced "+lastSync.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))
+  function Modal(p){
+    return h('div',{style:{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,padding:16}},
+      h('div',{style:{background:C.white,borderRadius:14,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 60px rgba(0,0,0,.2)"}},
+        h('div',{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid "+C.border}},
+          h('div',{style:{fontWeight:700,fontSize:15,color:C.navy}},p.title),
+          h('button',{onClick:p.onClose,style:{background:"none",border:"none",fontSize:18,cursor:"pointer",color:C.muted}},"✕")
+        ),
+        h('div',{style:{padding:"16px 20px 20px",display:"flex",flexDirection:"column",gap:12}},p.children)
       )
-    ),
-    React.createElement("div",{style:{background:C.white,borderBottom:"1px solid "+C.border,display:"flex",padding:"0 20px"}},
-      [["dashboard","📊 Dashboard"],["transactions","💸 Transactions"],["invoices","📄 Invoices"]].map(([id,label])=>
-        React.createElement("button",{key:id,onClick:()=>setTab(id),style:{padding:"12px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===id?700:400,color:tab===id?C.navy:C.muted,borderBottom:tab===id?"2px solid "+C.green:"2px solid transparent",marginBottom:-1}},label)
-      )
-    ),
-    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:18}},
+    );
+  }
+  function Field(p){ return h('div',null,h('div',{style:{fontSize:11,fontWeight:600,color:C.slate,marginBottom:4,textTransform:"uppercase",letterSpacing:".05em"}},p.label),p.children); }
+  function Kpi(p){ return h('div',{style:{background:C.white,borderRadius:10,padding:"14px 16px",border:"1px solid "+C.border,flex:1,minWidth:130}},h('div',{style:{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}},p.label),h('div',{style:{fontSize:20,fontWeight:800,color:p.accent||C.navy}},p.value),p.sub&&h('div',{style:{fontSize:11,color:C.muted,marginTop:3}},p.sub)); }
 
-      tab==="dashboard"&&React.createElement("div",{style:{maxWidth:900}},
-        overdue.length>0&&React.createElement("div",{style:{background:C.redL,border:"1px solid #fca5a5",borderRadius:10,padding:"10px 16px",marginBottom:14,fontSize:13,color:C.red,fontWeight:600}},
-          "⚠️ "+overdue.length+" overdue invoice"+(overdue.length>1?"s":"")+": "+overdue.map(i=>i.num).join(", ")
-        ),
-        React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}},
-          React.createElement(Kpi,{label:"Total Income",value:fmt$(totalInc),sub:"All time",accent:C.green}),
-          React.createElement(Kpi,{label:"Total Expenses",value:fmt$(totalExp),sub:"All time",accent:C.red}),
-          React.createElement(Kpi,{label:"Net",value:fmt$(totalInc-totalExp),sub:"Income - Expenses",accent:(totalInc-totalExp)>=0?C.green:C.red}),
-          React.createElement(Kpi,{label:"Outstanding AR",value:fmt$(totalAR,"USD"),sub:invs.filter(i=>i.status!=="Paid").length+" open invoices",accent:C.amber})
-        ),
-        React.createElement("div",{style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,padding:16,marginBottom:16}},
-          React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.navy,marginBottom:10}},"Monthly P&L"),
-          React.createElement("div",{style:{display:"flex",gap:8,padding:"0 12px 6px",marginBottom:4}},
-            ["Month","Income","Expenses","Net",""].map((h,i)=>React.createElement("div",{key:i,style:{flex:i===0?1:0,minWidth:i>0&&i<4?80:24,fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",textAlign:i>0?"right":"left"}},h))
-          ),
-          months.length?months.map(m=>React.createElement(MonthRow,{key:m,m})):React.createElement("div",{style:{fontSize:13,color:C.muted,textAlign:"center",padding:20}},"No transactions yet"),
-          React.createElement("div",{style:{fontSize:11,color:C.muted,marginTop:8}},"⬇ Download any month as CSV")
-        ),
-        React.createElement("div",{style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,padding:16}},
-          React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.navy,marginBottom:10}},"Open Invoices"),
-          invs.filter(i=>i.status!=="Paid").map(inv=>{
-            const days=daysUntil(inv.due);const bal=inv.amt-(inv.paid||0);
-            const dc=days!==null&&days<0?C.red:days!==null&&days<7?C.amber:C.slate;
-            return React.createElement("div",{key:inv.id,style:{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:7,background:C.bg,marginBottom:4,flexWrap:"wrap"}},
-              React.createElement("div",{style:{flex:1,minWidth:140}},
-                React.createElement("div",{style:{fontSize:12,fontWeight:700,color:C.navy}},inv.num,React.createElement(DocBadge,{docs:inv.docs})),
-                React.createElement("div",{style:{fontSize:11,color:C.muted}},inv.client)
-              ),
-              React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.navy}},fmt$(bal,inv.cur)),
-              React.createElement("div",{style:{fontSize:11,color:dc}},"Due "+fmtDate(inv.due)+(days!==null?" · "+(days<0?Math.abs(days)+"d overdue":days+"d left"):"")),
-              React.createElement("span",{style:{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:12,...statusColor(inv.status)}},inv.status),
-              React.createElement("button",{onClick:()=>markPaid(inv),style:{fontSize:11,background:C.greenL,color:C.green,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontWeight:600}},"Mark Paid")
-            );
-          }),
-          invs.every(i=>i.status==="Paid")&&React.createElement("div",{style:{fontSize:13,color:C.muted,textAlign:"center",padding:16}},"All invoices paid ✓")
+  function TxModal(p){
+    var _=useState(Object.assign({date:now(),type:"Expense",cat:"Other Expense",desc:"",method:"Credit Card",amt:"",cur:"CAD",notes:"",docs:[]},p.init)), f=_[0], setF=_[1];
+    function upd(k,v){ setF(function(prev){ var n=Object.assign({},prev); n[k]=v; return n; }); }
+    return h(Modal,{title:p.init&&p.init.id?"Edit transaction":"Add transaction",onClose:p.onClose},
+      h(Field,{label:"Date"},h('input',{value:f.date,onChange:function(e){upd("date",e.target.value);},type:"date",style:inputS})),
+      h(Field,{label:"Description"},h('input',{value:f.desc,onChange:function(e){upd("desc",e.target.value);},style:inputS})),
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+        h(Field,{label:"Type"},h('select',{value:f.type,onChange:function(e){upd("type",e.target.value);},style:inputS},["Income","Expense"].map(function(o){return h('option',{key:o},o);}))),
+        h(Field,{label:"Currency"},h('select',{value:f.cur,onChange:function(e){upd("cur",e.target.value);},style:inputS},["CAD","USD"].map(function(o){return h('option',{key:o},o);})))
+      ),
+      h(Field,{label:"Category"},h('select',{value:f.cat,onChange:function(e){upd("cat",e.target.value);},style:inputS},CATS.map(function(c){return h('option',{key:c},c);}))),
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+        h(Field,{label:"Amount"},h('input',{value:f.amt,onChange:function(e){upd("amt",e.target.value);},type:"number",step:"0.01",style:inputS,placeholder:"0.00"})),
+        h(Field,{label:"Method"},h('select',{value:f.method,onChange:function(e){upd("method",e.target.value);},style:inputS},METHODS.map(function(m){return h('option',{key:m},m);})))
+      ),
+      h(Field,{label:"Notes / Drive link"},h('textarea',{value:f.notes,onChange:function(e){upd("notes",e.target.value);},rows:2,style:Object.assign({},inputS,{resize:"none"}),placeholder:"Notes or paste a Google Drive link..."})),
+      h(Field,{label:"Attachments (PDF/image, max 4MB)"},h(DocAttach,{docs:f.docs,onChange:function(v){upd("docs",v);}})),
+      h('div',{style:{display:"flex",gap:8,marginTop:6}},h('button',{onClick:function(){p.onSave(f);},style:btnP},"Save"),h('button',{onClick:p.onClose,style:btnS},"Cancel"))
+    );
+  }
+
+  function InvModal(p){
+    var _=useState(Object.assign({num:"",client:"",issued:now(),due:"",amt:"",paid:"0",status:"Draft",cur:"USD",notes:"",docs:[]},p.init)), f=_[0], setF=_[1];
+    function upd(k,v){ setF(function(prev){ var n=Object.assign({},prev); n[k]=v; return n; }); }
+    return h(Modal,{title:p.init&&p.init.id?"Edit invoice":"New invoice",onClose:p.onClose},
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+        h(Field,{label:"Invoice #"},h('input',{value:f.num,onChange:function(e){upd("num",e.target.value);},style:inputS,placeholder:"JCF-XXX-001"})),
+        h(Field,{label:"Currency"},h('select',{value:f.cur,onChange:function(e){upd("cur",e.target.value);},style:inputS},["USD","CAD"].map(function(o){return h('option',{key:o},o);})))
+      ),
+      h(Field,{label:"Client"},h('input',{value:f.client,onChange:function(e){upd("client",e.target.value);},style:inputS})),
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+        h(Field,{label:"Issue date"},h('input',{value:f.issued,onChange:function(e){upd("issued",e.target.value);},type:"date",style:inputS})),
+        h(Field,{label:"Due date"},h('input',{value:f.due,onChange:function(e){upd("due",e.target.value);},type:"date",style:inputS}))
+      ),
+      h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}},
+        h(Field,{label:"Amount"},h('input',{value:f.amt,onChange:function(e){upd("amt",e.target.value);},type:"number",step:"0.01",style:inputS})),
+        h(Field,{label:"Paid"},h('input',{value:f.paid,onChange:function(e){upd("paid",e.target.value);},type:"number",step:"0.01",style:inputS})),
+        h(Field,{label:"Status"},h('select',{value:f.status,onChange:function(e){upd("status",e.target.value);},style:inputS},STATUSES.map(function(s){return h('option',{key:s},s);})))
+      ),
+      h(Field,{label:"Notes / Drive link"},h('textarea',{value:f.notes,onChange:function(e){upd("notes",e.target.value);},rows:2,style:Object.assign({},inputS,{resize:"none"}),placeholder:"Notes or paste a Google Drive link..."})),
+      h(Field,{label:"Attachments (PDF/image, max 4MB)"},h(DocAttach,{docs:f.docs,onChange:function(v){upd("docs",v);}})),
+      h('div',{style:{display:"flex",gap:8,marginTop:6}},h('button',{onClick:function(){p.onSave(f);},style:btnP},"Save"),h('button',{onClick:p.onClose,style:btnS},"Cancel"))
+    );
+  }
+
+  function App(){
+    var _1=useState("dashboard"), tab=_1[0], setTab=_1[1];
+    var _2=useState([]), txs=_2[0], setTxs=_2[1];
+    var _3=useState([]), invs=_3[0], setInvs=_3[1];
+    var _4=useState(""), me=_4[0], setMe=_4[1];
+    var _5=useState(false), nameSet=_5[0], setNameSet=_5[1];
+    var _6=useState(null), lastSync=_6[0], setLastSync=_6[1];
+    var _7=useState(null), toast=_7[0], setToast=_7[1];
+    var _8=useState(null), txForm=_8[0], setTxForm=_8[1];
+    var _9=useState(null), invForm=_9[0], setInvForm=_9[1];
+    var _10=useState({month:"",type:"",search:""}), filter=_10[0], setFilter=_10[1];
+    var _11=useState({status:"",search:""}), invFilter=_11[0], setInvFilter=_11[1];
+    var _12=useState(null), expandId=_12[0], setExpandId=_12[1];
+    var seeded=useRef(false);
+
+    useEffect(function(){
+      var unsubTx, unsubInv;
+      Promise.all([fbStore.get("jcf-tx"), fbStore.get("jcf-inv")]).then(function(res){
+        var t=res[0], iv=res[1];
+        if(!t&&!iv&&!seeded.current){ seeded.current=true; fbStore.set("jcf-tx",SEED_TX); fbStore.set("jcf-inv",SEED_INV); }
+        setLastSync(new Date());
+        unsubTx=fbStore.listen("jcf-tx",function(v){ setTxs(v.map(function(x){ return Object.assign({docs:[]},x); })); setLastSync(new Date()); });
+        unsubInv=fbStore.listen("jcf-inv",function(v){ setInvs(v.map(function(x){ return Object.assign({docs:[]},x); })); setLastSync(new Date()); });
+      });
+      return function(){ if(unsubTx)unsubTx(); if(unsubInv)unsubInv(); };
+    },[]);
+
+    useEffect(function(){ try{ var n=localStorage.getItem("jcf-me"); if(n){setMe(n);setNameSet(true);} }catch(e){} },[]);
+    function saveName(n){ n=n.trim(); if(!n)return; try{localStorage.setItem("jcf-me",n);}catch(e){} setMe(n); setNameSet(true); }
+    function showToast(msg,ok){ if(ok===undefined)ok=true; setToast({msg:msg,ok:ok}); setTimeout(function(){setToast(null);},3000); }
+
+    function saveTx(f){ var entry=Object.assign({},f,{id:f.id||uid(),by:me,at:now(),amt:parseFloat(f.amt)||0,docs:f.docs||[]}); var next=f.id?txs.map(function(t){return t.id===f.id?entry:t;}):[entry].concat(txs); fbStore.set("jcf-tx",next); setTxForm(null); showToast(f.id?"Transaction updated":"Transaction added"); }
+    function delTx(id){ var next=txs.filter(function(t){return t.id!==id;}); fbStore.set("jcf-tx",next); showToast("Transaction removed",false); }
+    function saveInv(f){ var entry=Object.assign({},f,{id:f.id||uid(),by:me,at:now(),amt:parseFloat(f.amt)||0,paid:parseFloat(f.paid)||0,docs:f.docs||[]}); var next=f.id?invs.map(function(i){return i.id===f.id?entry:i;}):[entry].concat(invs); fbStore.set("jcf-inv",next); setInvForm(null); showToast(f.id?"Invoice updated":"Invoice saved"); }
+    function markPaid(inv){ var next=invs.map(function(i){return i.id===inv.id?Object.assign({},i,{paid:i.amt,status:"Paid",at:now(),by:me}):i;}); fbStore.set("jcf-inv",next); showToast(inv.num+" marked Paid ✓"); }
+    function exportMonth(month){
+      var rows=txs.filter(function(t){return monthKey(t.date)===month;}).sort(function(a,b){return a.date.localeCompare(b.date);});
+      if(!rows.length){showToast("No transactions",false);return;}
+      var csv=[["Date","Type","Category","Description","Method","Amount","Currency","Notes","Docs","By"]].concat(rows.map(function(r){return[r.date,r.type,r.cat,'"'+r.desc+'"',r.method,r.amt,r.cur||"",'"'+(r.notes||"")+'"',(r.docs||[]).length,r.by||""];})).map(function(r){return r.join(",");}).join("\n");
+      var a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="JCFalke-"+month+".csv"; a.click();
+      showToast("Downloaded "+month+" CSV");
+    }
+
+    var totalInc=txs.filter(function(t){return t.type==="Income";}).reduce(function(s,t){return s+t.amt;},0);
+    var totalExp=txs.filter(function(t){return t.type==="Expense";}).reduce(function(s,t){return s+t.amt;},0);
+    var totalAR=invs.filter(function(i){return i.status!=="Paid";}).reduce(function(s,i){return s+(i.amt-(i.paid||0));},0);
+    var overdue=invs.filter(function(i){var d=daysUntil(i.due);return d!==null&&d<0&&i.status!=="Paid";});
+    var months=[...new Set(txs.map(function(t){return monthKey(t.date);}).filter(Boolean))].sort().reverse();
+    var filtTxs=txs.filter(function(t){
+      if(filter.month&&monthKey(t.date)!==filter.month)return false;
+      if(filter.type&&t.type!==filter.type)return false;
+      if(filter.search&&!(t.desc+t.cat).toLowerCase().includes(filter.search.toLowerCase()))return false;
+      return true;
+    }).sort(function(a,b){return b.date.localeCompare(a.date);});
+    var filtInvs=invs.filter(function(i){
+      if(invFilter.status&&i.status!==invFilter.status)return false;
+      if(invFilter.search&&!(i.num+i.client).toLowerCase().includes(invFilter.search.toLowerCase()))return false;
+      return true;
+    }).sort(function(a,b){return b.issued.localeCompare(a.issued);});
+
+    if(!nameSet) return h('div',{style:{background:C.navy,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}},
+      h('div',{style:{background:C.white,borderRadius:16,padding:36,width:320,textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}},
+        h('div',{style:{fontSize:36,marginBottom:12}},"💼"),
+        h('div',{style:{fontSize:18,fontWeight:700,color:C.navy,marginBottom:4}},"JCFalke Inc"),
+        h('div',{style:{fontSize:13,color:C.muted,marginBottom:24}},"Team Bookkeeping — shared workspace"),
+        h('input',{id:"ni",autoFocus:true,placeholder:"Your name (e.g. Carolina)",style:{width:"100%",border:"1px solid "+C.border,borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",marginBottom:14,boxSizing:"border-box"},onKeyDown:function(e){if(e.key==="Enter")saveName(e.target.value);}}),
+        h('button',{style:{width:"100%",background:C.green,color:C.white,border:"none",borderRadius:8,padding:"10px 0",fontSize:14,fontWeight:700,cursor:"pointer"},onClick:function(){saveName(document.getElementById("ni").value);}},"Enter workspace →"),
+        h('div',{style:{fontSize:11,color:C.muted,marginTop:12}},"Changes sync live across all team members.")
+      )
+    );
+
+    return h('div',{style:{background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column"}},
+      h('header',{style:{background:C.navy,padding:"12px 20px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 2px 8px rgba(0,0,0,.25)"}},
+        h('div',{style:{width:32,height:32,background:C.green,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}},"💼"),
+        h('div',{style:{flex:1}},h('div',{style:{color:C.white,fontSize:15,fontWeight:700}},"JCFalke Inc"),h('div',{style:{color:"#93b8d8",fontSize:10,marginTop:1}},"Live · Firebase sync")),
+        h('div',{style:{display:"flex",alignItems:"center",gap:8}},
+          h('div',{style:{width:7,height:7,borderRadius:"50%",background:"#4ade80"}}),
+          h('div',{style:{fontSize:11,color:"#93b8d8"}},"👤 "+me),
+          lastSync&&h('div',{style:{fontSize:10,color:"#6b8fb3"}},"synced "+lastSync.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))
         )
       ),
-
-      tab==="transactions"&&React.createElement("div",{style:{maxWidth:940}},
-        React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}},
-          React.createElement("input",{placeholder:"Search...",value:filter.search,onChange:e=>setFilter(p=>({...p,search:e.target.value})),style:{...inputS,width:180,flex:1}}),
-          React.createElement("select",{value:filter.month,onChange:e=>setFilter(p=>({...p,month:e.target.value})),style:{...inputS,width:150}},
-            React.createElement("option",{value:""},"All months"),
-            months.map(m=>React.createElement("option",{key:m,value:m},new Date(m+"-01T12:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"})))
-          ),
-          React.createElement("select",{value:filter.type,onChange:e=>setFilter(p=>({...p,type:e.target.value})),style:{...inputS,width:130}},
-            React.createElement("option",{value:""},"All types"),
-            React.createElement("option",{value:"Income"},"Income"),
-            React.createElement("option",{value:"Expense"},"Expense")
-          ),
-          filter.month&&React.createElement("button",{onClick:()=>exportMonth(filter.month),style:{...btnSecondary,fontSize:12}},"⬇ CSV"),
-          React.createElement("button",{onClick:()=>setTxForm({}),style:btnPrimary},"+ Add")
-        ),
-        React.createElement("div",{style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,overflow:"hidden"}},
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"90px 80px 1fr 90px 80px 60px",padding:"8px 14px",background:C.bg,borderBottom:"1px solid "+C.border}},
-            ["Date","Type","Description","Amount","Method",""].map((h,i)=>React.createElement("div",{key:i,style:{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase"}},h))
-          ),
-          filteredTxs.length?filteredTxs.map(t=>React.createElement("div",{key:t.id},
-            React.createElement("div",{onClick:()=>setExpandId(expandId===t.id?null:t.id),style:{display:"grid",gridTemplateColumns:"90px 80px 1fr 90px 80px 60px",padding:"9px 14px",borderBottom:"1px solid "+C.border,cursor:"pointer",background:expandId===t.id?"#f8fafc":C.white}},
-              React.createElement("div",{style:{fontSize:12,color:C.slate}},fmtDate(t.date)),
-              React.createElement("div",null,React.createElement("span",{style:{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,background:t.type==="Income"?C.greenL:C.redL,color:t.type==="Income"?C.green:C.red}},t.type)),
-              React.createElement("div",{style:{fontSize:12,color:C.navy,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},t.desc,React.createElement(DocBadge,{docs:t.docs})),
-              React.createElement("div",{style:{fontSize:12,fontWeight:700,color:t.type==="Income"?C.green:C.red}},fmt$(t.amt,t.cur)),
-              React.createElement("div",{style:{fontSize:11,color:C.muted}},t.method),
-              React.createElement("div",{style:{display:"flex",gap:4,justifyContent:"flex-end"}},
-                React.createElement("button",{onClick:e=>{e.stopPropagation();setTxForm(t)},style:{background:"none",border:"none",cursor:"pointer",fontSize:13}},"✏️"),
-                React.createElement("button",{onClick:e=>{e.stopPropagation();deleteTx(t.id)},style:{background:"none",border:"none",cursor:"pointer",fontSize:13}},"🗑")
-              )
-            ),
-            expandId===t.id&&React.createElement("div",{style:{padding:"10px 14px 12px",background:"#f8fafc",borderBottom:"1px solid "+C.border,display:"flex",flexDirection:"column",gap:8}},
-              React.createElement("div",{style:{display:"flex",gap:16,flexWrap:"wrap",fontSize:11,color:C.slate}},
-                React.createElement("span",null,React.createElement("b",null,"Category:")," ",t.cat),
-                t.notes&&React.createElement("span",null,React.createElement("b",null,"Notes:")," ",React.createElement(NotesWithLinks,{text:t.notes})),
-                t.by&&React.createElement("span",null,React.createElement("b",null,"Added by:")," ",t.by," on ",t.at)
-              ),
-              t.docs&&t.docs.length>0&&React.createElement("div",null,
-                React.createElement("div",{style:{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",marginBottom:4}},"Attachments"),
-                React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6}},
-                  t.docs.map((d,i)=>React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",background:C.white,borderRadius:6,border:"1px solid "+C.border,fontSize:11}},
-                    React.createElement("span",null,d.type==="application/pdf"?"📄":d.type.startsWith("image/")?"🖼":"📎"),
-                    React.createElement("span",{style:{color:C.navy}},d.name),
-                    d.type==="application/pdf"&&React.createElement("a",{href:d.data,download:d.name,style:{color:C.green,textDecoration:"none",marginLeft:4}},"⬇"),
-                    d.type.startsWith("image/")&&React.createElement("a",{href:d.data,target:"_blank",rel:"noopener noreferrer",style:{color:C.green,textDecoration:"none",marginLeft:4}},"👁")
-                  ))
-                )
-              )
-            )
-          )):React.createElement("div",{style:{padding:32,textAlign:"center",color:C.muted,fontSize:13}},"No transactions match your filters.")
-        ),
-        React.createElement("div",{style:{fontSize:11,color:C.muted,marginTop:6,textAlign:"right"}},filteredTxs.length+" of "+txs.length+" transactions")
+      h('div',{style:{background:C.white,borderBottom:"1px solid "+C.border,display:"flex",padding:"0 20px"}},
+        [["dashboard","📊 Dashboard"],["transactions","💸 Transactions"],["invoices","📄 Invoices"]].map(function(pair){
+          return h('button',{key:pair[0],onClick:function(){setTab(pair[0]);},style:{padding:"12px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===pair[0]?700:400,color:tab===pair[0]?C.navy:C.muted,borderBottom:tab===pair[0]?"2px solid "+C.green:"2px solid transparent",marginBottom:-1}},pair[1]);
+        })
       ),
+      h('div',{style:{flex:1,overflowY:"auto",padding:18}},
 
-      tab==="invoices"&&React.createElement("div",{style:{maxWidth:900}},
-        React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}},
-          React.createElement("input",{placeholder:"Search invoice / client...",value:invFilter.search,onChange:e=>setInvFilter(p=>({...p,search:e.target.value})),style:{...inputS,flex:1,minWidth:160}}),
-          React.createElement("select",{value:invFilter.status,onChange:e=>setInvFilter(p=>({...p,status:e.target.value})),style:{...inputS,width:130}},
-            React.createElement("option",{value:""},"All statuses"),
-            STATUSES.map(s=>React.createElement("option",{key:s},s))
+        tab==="dashboard"&&h('div',{style:{maxWidth:900}},
+          overdue.length>0&&h('div',{style:{background:C.redL,border:"1px solid #fca5a5",borderRadius:10,padding:"10px 16px",marginBottom:14,fontSize:13,color:C.red,fontWeight:600}},"⚠️ "+overdue.length+" overdue: "+overdue.map(function(i){return i.num;}).join(", ")),
+          h('div',{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}},
+            h(Kpi,{label:"Total Income",value:fmt$(totalInc),sub:"All time",accent:C.green}),
+            h(Kpi,{label:"Total Expenses",value:fmt$(totalExp),sub:"All time",accent:C.red}),
+            h(Kpi,{label:"Net",value:fmt$(totalInc-totalExp),sub:"Income - Expenses",accent:(totalInc-totalExp)>=0?C.green:C.red}),
+            h(Kpi,{label:"Outstanding AR",value:fmt$(totalAR,"USD"),sub:invs.filter(function(i){return i.status!=="Paid";}).length+" open invoices",accent:C.amber})
           ),
-          React.createElement("button",{onClick:()=>setInvForm({}),style:btnPrimary},"+ New Invoice")
+          h('div',{style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,padding:16,marginBottom:16}},
+            h('div',{style:{fontSize:13,fontWeight:700,color:C.navy,marginBottom:10}},"Monthly P&L"),
+            months.length?months.map(function(m){
+              var mt=txs.filter(function(t){return monthKey(t.date)===m;});
+              var inc=mt.filter(function(t){return t.type==="Income";}).reduce(function(s,t){return s+t.amt;},0);
+              var exp=mt.filter(function(t){return t.type==="Expense";}).reduce(function(s,t){return s+t.amt;},0);
+              var net=inc-exp;
+              var label=new Date(m+"-01T12:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"});
+              return h('div',{key:m,style:{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:7,background:C.bg,marginBottom:4}},
+                h('div',{style:{flex:1,fontSize:13,fontWeight:600,color:C.navy}},label),
+                h('div',{style:{fontSize:12,color:C.green,minWidth:80,textAlign:"right"}},fmt$(inc)),
+                h('div',{style:{fontSize:12,color:C.red,minWidth:80,textAlign:"right"}},fmt$(exp)),
+                h('div',{style:{fontSize:12,fontWeight:700,color:net>=0?C.green:C.red,minWidth:80,textAlign:"right"}},fmt$(net)),
+                h('button',{onClick:function(){exportMonth(m);},style:{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14}},"⬇")
+              );
+            }):h('div',{style:{fontSize:13,color:C.muted,textAlign:"center",padding:20}},"No transactions yet")
+          ),
+          h('div',{style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,padding:16}},
+            h('div',{style:{fontSize:13,fontWeight:700,color:C.navy,marginBottom:10}},"Open Invoices"),
+            invs.filter(function(i){return i.status!=="Paid";}).map(function(inv){
+              var days=daysUntil(inv.due); var bal=inv.amt-(inv.paid||0);
+              var dc=days!==null&&days<0?C.red:days!==null&&days<7?C.amber:C.slate;
+              return h('div',{key:inv.id,style:{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:7,background:C.bg,marginBottom:4,flexWrap:"wrap"}},
+                h('div',{style:{flex:1,minWidth:140}},h('div',{style:{fontSize:12,fontWeight:700,color:C.navy}},inv.num),h('div',{style:{fontSize:11,color:C.muted}},inv.client)),
+                h('div',{style:{fontSize:13,fontWeight:700,color:C.navy}},fmt$(bal,inv.cur)),
+                h('div',{style:{fontSize:11,color:dc}},"Due "+fmtDate(inv.due)+(days!==null?" · "+(days<0?Math.abs(days)+"d overdue":days+"d left"):"")),
+                h('span',{style:Object.assign({fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:12},statusColor(inv.status))},inv.status),
+                h('button',{onClick:function(){markPaid(inv);},style:{fontSize:11,background:C.greenL,color:C.green,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontWeight:600}},"Mark Paid")
+              );
+            }),
+            invs.every(function(i){return i.status==="Paid";})&&h('div',{style:{fontSize:13,color:C.muted,textAlign:"center",padding:16}},"All invoices paid ✓")
+          )
         ),
-        filteredInvs.map(inv=>{
-          const bal=inv.amt-(inv.paid||0);const days=daysUntil(inv.due);const sc=statusColor(inv.status);
-          return React.createElement("div",{key:inv.id,style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,padding:"14px 16px",marginBottom:8}},
-            React.createElement("div",{style:{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}},
-              React.createElement("div",{style:{flex:1,minWidth:200}},
-                React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.navy}},inv.num,React.createElement(DocBadge,{docs:inv.docs})),
-                React.createElement("div",{style:{fontSize:12,color:C.slate,marginTop:2}},inv.client),
-                inv.notes&&React.createElement("div",{style:{fontSize:11,color:C.muted,marginTop:4,maxWidth:400}},React.createElement(NotesWithLinks,{text:inv.notes})),
-                React.createElement("div",{style:{fontSize:11,color:C.muted,marginTop:4}},"Added by "+(inv.by||"—")+" · "+inv.at)
-              ),
-              React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",flexShrink:0}},
-                React.createElement("div",{style:{fontSize:18,fontWeight:800,color:C.navy}},fmt$(inv.amt,inv.cur)),
-                inv.paid>0&&React.createElement("div",{style:{fontSize:11,color:C.green}},"Paid: "+fmt$(inv.paid,inv.cur)),
-                bal>0&&inv.status!=="Paid"&&React.createElement("div",{style:{fontSize:12,fontWeight:700,color:C.amber}},"Due: "+fmt$(bal,inv.cur)),
-                React.createElement("span",{style:{fontSize:10,fontWeight:600,padding:"2px 9px",borderRadius:12,...sc}},inv.status),
-                React.createElement("div",{style:{fontSize:11,color:days!==null&&days<0?C.red:days!==null&&days<7?C.amber:C.muted}},
-                  "Due "+fmtDate(inv.due)+(days!==null?" ("+(days<0?Math.abs(days)+"d overdue":days+"d")+")":"")),
-                React.createElement("div",{style:{display:"flex",gap:6,marginTop:4}},
-                  inv.status!=="Paid"&&React.createElement("button",{onClick:()=>markPaid(inv),style:{fontSize:11,background:C.greenL,color:C.green,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontWeight:600}},"✓ Mark Paid"),
-                  React.createElement("button",{onClick:()=>setInvForm(inv),style:{fontSize:11,background:C.bg,color:C.slate,border:"1px solid "+C.border,borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Edit")
-                )
-              )
+
+        tab==="transactions"&&h('div',{style:{maxWidth:940}},
+          h('div',{style:{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}},
+            h('input',{placeholder:"Search...",value:filter.search,onChange:function(e){setFilter(function(p){return Object.assign({},p,{search:e.target.value});});},style:Object.assign({},inputS,{flex:1})}),
+            h('select',{value:filter.month,onChange:function(e){setFilter(function(p){return Object.assign({},p,{month:e.target.value});});},style:Object.assign({},inputS,{width:150})},
+              h('option',{value:""},"All months"),
+              months.map(function(m){return h('option',{key:m,value:m},new Date(m+"-01T12:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"}));})
             ),
-            inv.docs&&inv.docs.length>0&&React.createElement("div",{style:{marginTop:10,paddingTop:10,borderTop:"1px solid "+C.border}},
-              React.createElement("div",{style:{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",marginBottom:6}},"Attachments"),
-              React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6}},
-                inv.docs.map((d,i)=>React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",background:C.bg,borderRadius:6,border:"1px solid "+C.border,fontSize:11}},
-                  React.createElement("span",null,d.type==="application/pdf"?"📄":d.type.startsWith("image/")?"🖼":"📎"),
-                  React.createElement("span",{style:{color:C.navy}},d.name),
-                  d.type==="application/pdf"&&React.createElement("a",{href:d.data,download:d.name,style:{color:C.green,textDecoration:"none",marginLeft:4}},"⬇ Save"),
-                  d.type.startsWith("image/")&&React.createElement("a",{href:d.data,target:"_blank",rel:"noopener noreferrer",style:{color:C.green,textDecoration:"none",marginLeft:4}},"👁 View")
-                ))
+            h('select',{value:filter.type,onChange:function(e){setFilter(function(p){return Object.assign({},p,{type:e.target.value});});},style:Object.assign({},inputS,{width:130})},
+              h('option',{value:""},"All types"),h('option',{value:"Income"},"Income"),h('option',{value:"Expense"},"Expense")
+            ),
+            filter.month&&h('button',{onClick:function(){exportMonth(filter.month);},style:Object.assign({},btnS,{fontSize:12})},"⬇ CSV"),
+            h('button',{onClick:function(){setTxForm({});},style:btnP},"+ Add")
+          ),
+          h('div',{style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,overflow:"hidden"}},
+            h('div',{style:{display:"grid",gridTemplateColumns:"90px 80px 1fr 90px 80px 60px",padding:"8px 14px",background:C.bg,borderBottom:"1px solid "+C.border}},
+              ["Date","Type","Description","Amount","Method",""].map(function(hd,i){return h('div',{key:i,style:{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase"}},hd);})
+            ),
+            filtTxs.length?filtTxs.map(function(t){
+              return h('div',{key:t.id},
+                h('div',{onClick:function(){setExpandId(expandId===t.id?null:t.id);},style:{display:"grid",gridTemplateColumns:"90px 80px 1fr 90px 80px 60px",padding:"9px 14px",borderBottom:"1px solid "+C.border,cursor:"pointer",background:expandId===t.id?"#f8fafc":C.white}},
+                  h('div',{style:{fontSize:12,color:C.slate}},fmtDate(t.date)),
+                  h('div',null,h('span',{style:{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,background:t.type==="Income"?C.greenL:C.redL,color:t.type==="Income"?C.green:C.red}},t.type)),
+                  h('div',{style:{fontSize:12,color:C.navy,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},t.desc,h(DocBadge,{docs:t.docs})),
+                  h('div',{style:{fontSize:12,fontWeight:700,color:t.type==="Income"?C.green:C.red}},fmt$(t.amt,t.cur)),
+                  h('div',{style:{fontSize:11,color:C.muted}},t.method),
+                  h('div',{style:{display:"flex",gap:4,justifyContent:"flex-end"}},
+                    h('button',{onClick:function(e){e.stopPropagation();setTxForm(t);},style:{background:"none",border:"none",cursor:"pointer",fontSize:13}},"✏️"),
+                    h('button',{onClick:function(e){e.stopPropagation();delTx(t.id);},style:{background:"none",border:"none",cursor:"pointer",fontSize:13}},"🗑")
+                  )
+                ),
+                expandId===t.id&&h('div',{style:{padding:"10px 14px 12px",background:"#f8fafc",borderBottom:"1px solid "+C.border,fontSize:11,color:C.slate,display:"flex",flexDirection:"column",gap:6}},
+                  h('div',{style:{display:"flex",gap:16,flexWrap:"wrap"}},
+                    h('span',null,h('b',null,"Category: "),t.cat),
+                    t.notes&&h('span',null,h('b',null,"Notes: "),t.notes),
+                    t.by&&h('span',null,h('b',null,"By: "),t.by+" on "+t.at)
+                  ),
+                  t.docs&&t.docs.length>0&&h('div',{style:{display:"flex",flexWrap:"wrap",gap:6}},
+                    t.docs.map(function(d,i){return h('div',{key:i,style:{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",background:C.white,borderRadius:6,border:"1px solid "+C.border,fontSize:11}},
+                      h('span',null,d.type==="application/pdf"?"📄":"🖼"),h('span',{style:{color:C.navy}},d.name),
+                      d.type==="application/pdf"?h('a',{href:d.data,download:d.name,style:{color:C.green,textDecoration:"none"}},"⬇"):h('a',{href:d.data,target:"_blank",style:{color:C.green,textDecoration:"none"}},"👁")
+                    );})
+                  )
+                )
+              );
+            }):h('div',{style:{padding:32,textAlign:"center",color:C.muted,fontSize:13}},"No transactions match.")
+          ),
+          h('div',{style:{fontSize:11,color:C.muted,marginTop:6,textAlign:"right"}},filtTxs.length+" of "+txs.length+" transactions")
+        ),
+
+        tab==="invoices"&&h('div',{style:{maxWidth:900}},
+          h('div',{style:{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}},
+            h('input',{placeholder:"Search invoice / client...",value:invFilter.search,onChange:function(e){setInvFilter(function(p){return Object.assign({},p,{search:e.target.value});});},style:Object.assign({},inputS,{flex:1})}),
+            h('select',{value:invFilter.status,onChange:function(e){setInvFilter(function(p){return Object.assign({},p,{status:e.target.value});});},style:Object.assign({},inputS,{width:130})},
+              h('option',{value:""},"All statuses"),STATUSES.map(function(s){return h('option',{key:s},s);})
+            ),
+            h('button',{onClick:function(){setInvForm({});},style:btnP},"+ New Invoice")
+          ),
+          filtInvs.map(function(inv){
+            var bal=inv.amt-(inv.paid||0); var days=daysUntil(inv.due); var sc=statusColor(inv.status);
+            return h('div',{key:inv.id,style:{background:C.white,borderRadius:10,border:"1px solid "+C.border,padding:"14px 16px",marginBottom:8}},
+              h('div',{style:{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}},
+                h('div',{style:{flex:1,minWidth:200}},
+                  h('div',{style:{fontSize:13,fontWeight:700,color:C.navy}},inv.num,h(DocBadge,{docs:inv.docs})),
+                  h('div',{style:{fontSize:12,color:C.slate,marginTop:2}},inv.client),
+                  inv.notes&&h('div',{style:{fontSize:11,color:C.muted,marginTop:4}},inv.notes),
+                  h('div',{style:{fontSize:11,color:C.muted,marginTop:4}},"By "+(inv.by||"—")+" · "+inv.at)
+                ),
+                h('div',{style:{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}},
+                  h('div',{style:{fontSize:18,fontWeight:800,color:C.navy}},fmt$(inv.amt,inv.cur)),
+                  inv.paid>0&&h('div',{style:{fontSize:11,color:C.green}},"Paid: "+fmt$(inv.paid,inv.cur)),
+                  bal>0&&inv.status!=="Paid"&&h('div',{style:{fontSize:12,fontWeight:700,color:C.amber}},"Due: "+fmt$(bal,inv.cur)),
+                  h('span',{style:Object.assign({fontSize:10,fontWeight:600,padding:"2px 9px",borderRadius:12},sc)},inv.status),
+                  h('div',{style:{fontSize:11,color:days!==null&&days<0?C.red:days!==null&&days<7?C.amber:C.muted}},"Due "+fmtDate(inv.due)+(days!==null?" ("+(days<0?Math.abs(days)+"d overdue":days+"d")+")":"")),
+                  h('div',{style:{display:"flex",gap:6,marginTop:4}},
+                    inv.status!=="Paid"&&h('button',{onClick:function(){markPaid(inv);},style:{fontSize:11,background:C.greenL,color:C.green,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontWeight:600}},"✓ Mark Paid"),
+                    h('button',{onClick:function(){setInvForm(inv);},style:{fontSize:11,background:C.bg,color:C.slate,border:"1px solid "+C.border,borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Edit")
+                  )
+                )
+              ),
+              inv.docs&&inv.docs.length>0&&h('div',{style:{marginTop:10,paddingTop:10,borderTop:"1px solid "+C.border,display:"flex",flexWrap:"wrap",gap:6}},
+                inv.docs.map(function(d,i){return h('div',{key:i,style:{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",background:C.bg,borderRadius:6,border:"1px solid "+C.border,fontSize:11}},
+                  h('span',null,d.type==="application/pdf"?"📄":"🖼"),h('span',{style:{color:C.navy}},d.name),
+                  d.type==="application/pdf"?h('a',{href:d.data,download:d.name,style:{color:C.green,textDecoration:"none"}},"⬇ Save"):h('a',{href:d.data,target:"_blank",style:{color:C.green,textDecoration:"none"}},"👁 View")
+                );})
               )
-            )
-          );
-        }),
-        !filteredInvs.length&&React.createElement("div",{style:{textAlign:"center",color:C.muted,fontSize:13,padding:40}},"No invoices match your filters.")
-      )
-    ),
-    txForm&&React.createElement(TxFormModal,{init:txForm,onSave:saveTx,onClose:()=>setTxForm(null)}),
-    invForm&&React.createElement(InvFormModal,{init:invForm,onSave:saveInv,onClose:()=>setInvForm(null)}),
-    toast&&React.createElement("div",{style:{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:toast.ok?C.navy:C.red,color:C.white,padding:"10px 20px",borderRadius:10,fontSize:13,fontWeight:600,boxShadow:"0 4px 16px rgba(0,0,0,.2)",zIndex:100,pointerEvents:"none",whiteSpace:"nowrap"}},toast.msg)
-  );
-}
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+            );
+          }),
+          !filtInvs.length&&h('div',{style:{textAlign:"center",color:C.muted,fontSize:13,padding:40}},"No invoices match.")
+        )
+      ),
+      txForm&&h(TxModal,{init:txForm,onSave:saveTx,onClose:function(){setTxForm(null);}}),
+      invForm&&h(InvModal,{init:invForm,onSave:saveInv,onClose:function(){setInvForm(null);}}),
+      toast&&h('div',{style:{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:toast.ok?C.navy:C.red,color:C.white,padding:"10px 20px",borderRadius:10,fontSize:13,fontWeight:600,boxShadow:"0 4px 16px rgba(0,0,0,.2)",zIndex:100,pointerEvents:"none",whiteSpace:"nowrap"}},toast.msg)
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+
+}); // firestore
+}); // firebase-app
+}); // react-dom
+}); // react
 </script>
 </body>
 </html>
