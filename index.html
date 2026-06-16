@@ -126,7 +126,7 @@ loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.
     }
     content.push({type:"text",text:prompt});
 
-    fetch("https://api.anthropic.com/v1/messages", {
+    fetch("https://bookkeepingjcfalke.jgcanizales.workers.dev", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:content}]})
